@@ -1,2 +1,1 @@
-# motioncontrl_
-大作业
+simple_motion中有改进的插补算法
