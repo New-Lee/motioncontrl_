@@ -36,8 +36,7 @@ tPosCmd new_cmd;
 tAxisSetpoint axis1_setpoint;
 
 int cycle_count = 0;
-
-
+double T=10;// 插补周期
 
 
 void task_trajectory_generator_proc(void *arg)
@@ -56,7 +55,7 @@ void task_trajectory_generator_proc(void *arg)
         axis1_setpoint.Velocity = 0;
 
         int temp;
-	int interposition_time = 2;
+
 	while (1) {
 		rt_task_wait_period(NULL);
 		now = rt_timer_read();
@@ -66,39 +65,49 @@ void task_trajectory_generator_proc(void *arg)
 		 *       your program. It is used here in the critical loop
 		 *       only for demonstration purposes.
 		 */
-		printf("Task A Time since last turn: %ld.%06ld ms\n",
-		       (long)(now - previous) / 1000000,
-		       (long)(now - previous) % 1000000);
+		// printf("Task A Time since last turn: %ld.%06ld ms\n",
+		//        (long)(now - previous) / 1000000,
+		//        (long)(now - previous) % 1000000);
 		       previous = now;
 
                //  Add your code
-			   temp=0;
                if(new_cmd.Request)
                {
                   new_cmd.Response = true;
-			while(axis1_setpoint.Position<new_cmd.Position)
-				{
-				if (temp<=20)
-				 {
-						  
-					axis1_setpoint.Velocity = axis1_setpoint.Velocity+new_cmd.Acceleration*interposition_time;
-						  
-				 }
-				 else if(temp>200)
-				{
-					  axis1_setpoint.Velocity = axis1_setpoint.Velocity-new_cmd.Deceleration*interposition_time;
-				 }
-					
-						  axis1_setpoint.Position = interposition_time*axis1_setpoint.Velocity+axis1_setpoint.Position;
-						  temp=temp+interposition_time;
-						printf("position: %d mm\n",axis1_setpoint.Position/1000);
-				  }
-				  
-				  
-				  
-                  new_cmd.Done = true;
+                  double p=new_cmd.Position;
+                  double v=new_cmd.Velocity;
+                  double a=new_cmd.Acceleration;
+                  double d=new_cmd.Deceleration;
+                  // printf("p,v,a,d: %f.%f.%f.%f \n",
+                  //   p,
+                  //   v,
+                  //   a,
+                  //   d);
+                  //accelerate  
+                  if(axis1_setpoint.Position < v*v/(2*a))
+                  {
+                        axis1_setpoint.Velocity += a*T;
+                        axis1_setpoint.Position += axis1_setpoint.Velocity*T;
+                        printf("Position1:%f\n",axis1_setpoint.Position);
+                  }
+                  //constant motion
+                  else if(axis1_setpoint.Position < p - v*v/d)
+                  {
+                        axis1_setpoint.Velocity = v;
+                        axis1_setpoint.Position += v*T;
+                        printf("Position2:%f\n",axis1_setpoint.Position);
+                  }
+		  //Decelerate
+                  else if(axis1_setpoint.Position < p)
+                 {
+                        axis1_setpoint.Position += axis1_setpoint.Velocity*T;
+                        axis1_setpoint.Velocity -= d*T;
+                        printf("Position3:%f\n",axis1_setpoint.Position);
+                 }
+                 else
+                        new_cmd.Done = true;
                }
-	}
+      }
 }
 
 void task_command_sender_proc(void *arg)
@@ -131,9 +140,9 @@ void task_command_sender_proc(void *arg)
 		 *       your program. It is used here in the critical loop
 		 *       only for demonstration purposes.
 		 */
-		printf("Task B Time since last turn: %ld.%06ld ms\n",
-		       (long)(now - previous) / 1000000,
-		       (long)(now - previous) % 1000000);
+		// printf("Task B Time since last turn: %ld.%06ld ms\n",
+		//        (long)(now - previous) / 1000000,
+		//        (long)(now - previous) % 1000000);
 		       previous = now;
                 cycle_count = cycle_count + 1;
                 printf("cycle_count:%d\n",cycle_count);
